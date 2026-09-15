@@ -18,7 +18,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 COPY . .
 
-RUN cargo build --release -p order-service
+RUN cargo build --release -p notification-service
 
 
 # ============================================
@@ -28,7 +28,7 @@ FROM debian:bookworm-slim AS runtime
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/order-service /usr/local/bin/order-service
-EXPOSE 8004
+COPY --from=builder /app/target/release/notification-service /usr/local/bin/notification-service
+EXPOSE 8003
 
-CMD ["order-service"]
+CMD ["notification-service"]

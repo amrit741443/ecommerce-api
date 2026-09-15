@@ -1,6 +1,6 @@
-.git
+.git/
 .github
-target
+target/
 .env
-.env.*
+.env.\*
 README.md

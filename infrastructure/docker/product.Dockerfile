@@ -18,7 +18,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 COPY . .
 
-RUN cargo build --release -p order-service
+RUN cargo build --release -p product-service
 
 
 # ============================================
@@ -28,7 +28,7 @@ FROM debian:bookworm-slim AS runtime
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/order-service /usr/local/bin/order-service
-EXPOSE 8004
+COPY --from=builder /app/target/release/product-service /usr/local/bin/product-service
+EXPOSE 8006
 
-CMD ["order-service"]
+CMD ["product-service"]
