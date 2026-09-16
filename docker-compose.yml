@@ -1,25 +1,89 @@
 services:
-  user-service:
+
+  auth-service:
     build:
       context: .
-      dockerfile: services/user-service/Dockerfile
+      dockerfile: infrastructure/docker/auth.Dockerfile
     ports:
-      - "4000:4000"
-    environment:
-      DATABASE_URL: postgres://ecommerce:ecommerce@postgres:5432/user_db
-    depends_on:
-      - postgres
+      - "8001"
+  
+  
+  cart-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/cart.Dockerfile
+    ports:
+      - "8002"
+  
+  notification-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/notification.Dockerfile
+    ports:
+      - "8003"
+  
+  order-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/order.Dockerfile
+    ports:
+      - "8004"
 
-  postgres:
-    image: postgres:latest
+  payment-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/payment.Dockerfile
+    ports:
+      - "8005"
+
+  product-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/product.Dockerfile
+    ports:
+      - "8006"
+    
     environment:
-      POSTGRES_USER: ecommerce
-      POSTGRES_PASSWORD: ecommerce
-      POSTGRES_DB: user_db
+     PRODUCT_DATABASE_URL: postgres://postgres:postgres@postgres:5432/product_db
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/gateway.Dockerfile
+    ports:
+      - "8080:8080"
+    
+    environment:
+      PRODUCT_SERVICE_URL: http://product-service:8006
+  
+  
+  postgres:
+    image: postgres:17-alpine
+    container_name: ecommerce_postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  redis:
+    image: redis:alpine
+    container_name: ecommerce_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  nats:
+    image: nats:2-alpine
+    container_name: ecommerce_nats
+    restart: unless-stopped
+    ports:
+      - "4222:4222"
 
 volumes:
   postgres_data:
