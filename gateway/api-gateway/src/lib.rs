@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{Router, extract::State, routing::get};
 
 use reqwest::Client;
@@ -14,6 +16,7 @@ async fn get_product_test(State(state): State<AppState>) -> Result<String, Strin
     let response = state
         .client
         .get(url)
+        .timeout(Duration::from_secs(3))
         .send()
         .await
         .map_err(|error| error.to_string())?;

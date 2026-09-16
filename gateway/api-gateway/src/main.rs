@@ -1,12 +1,16 @@
 use api_gateway::{AppState, app};
 use axum::serve;
+use std::env;
 use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() {
+    let product_service_url =
+        env::var("PRODUCT_SERVICE_URL").expect("PRODUCT_SERVICE_URL must be set");
+
     let state = AppState {
         client: reqwest::Client::new(),
-        product_service_url: "http://0.0.0.0:8006".to_string(),
+        product_service_url,
     };
 
     let listener = TcpListener::bind("0.0.0.0:8080")

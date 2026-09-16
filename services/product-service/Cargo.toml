@@ -6,8 +6,11 @@ license.workspace = true
 
 
 [dependencies]
+chrono.workspace = true
 axum.workspace = true
 serde.workspace = true
 tokio.workspace = true
 uuid.workspace = true
 sqlx.workspace = true
+dotenvy.workspace = true
+rust_decimal = { version = "1.36", features = ["db-postgres", "serde"] }
