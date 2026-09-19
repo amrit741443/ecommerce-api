@@ -11,6 +11,14 @@ pub struct CreateProductRequest {
     pub stock: i32,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateProductRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub price: Option<Decimal>,
+    pub stock: Option<i32>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct ProductResponse {
     pub id: String,
@@ -34,4 +42,10 @@ impl From<Product> for ProductResponse {
             updated_at: product.updated_at.to_rfc3339(),
         }
     }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProductListResponse {
+    pub total: usize,
+    pub products: Vec<ProductResponse>,
 }

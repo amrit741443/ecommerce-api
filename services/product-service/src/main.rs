@@ -1,12 +1,12 @@
-use axum::{Router, routing::get};
 use product_service::{
-    api::state::AppState, config::Config, infrastructure::database::postgres::create_pool,
+    api::{routes::create_router, state::AppState},
+    application::product_service::ProductService,
+    config::Config,
+    infrastructure::{
+        database::postgres::create_pool, repositories::product_repository::ProductRepository,
+    },
 };
 use tokio::net::TcpListener;
-
-async fn health() -> &'static str {
-    "product-service: OK"
-}
 
 #[tokio::main]
 async fn main() {
@@ -18,14 +18,13 @@ async fn main() {
 
     // Run pending migrations at startup
 
-    println!("Connected to database");
+    let product_repository = ProductRepository::new(db);
 
-    let state = AppState { db };
+    let product_service = ProductService::new(product_repository);
 
-    // Build Axum router
-    let app = Router::new()
-        .route("/health", get(health))
-        .with_state(state);
+    let state = AppState { product_service };
+
+    let app = create_router(state);
 
     // Fixed single colon binding
     let bind_addr = "0.0.0.0:8006";

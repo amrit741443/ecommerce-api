@@ -6,3 +6,14 @@ pub struct CreateProductCommand {
     pub price: Decimal,
     pub stock: i32,
 }
+
+impl CreateProductCommand {
+    pub fn new(name: String, description: Option<String>, price: Decimal, stock: i32) -> Self {
+        Self {
+            name,
+            description,
+            price,
+            stock,
+        }
+    }
+}
