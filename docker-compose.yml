@@ -6,22 +6,22 @@ services:
       dockerfile: infrastructure/docker/auth.Dockerfile
     ports:
       - "8001"
-  
-  
+
+
   cart-service:
     build:
       context: .
       dockerfile: infrastructure/docker/cart.Dockerfile
     ports:
       - "8002"
-  
+
   notification-service:
     build:
       context: .
       dockerfile: infrastructure/docker/notification.Dockerfile
     ports:
       - "8003"
-  
+
   order-service:
     build:
       context: .
@@ -41,10 +41,10 @@ services:
       context: .
       dockerfile: infrastructure/docker/product.Dockerfile
     ports:
-      - "8006"
-    
+      - "8006:8006"
+
     environment:
-     PRODUCT_DATABASE_URL: postgres://postgres:postgres@postgres:5432/product_db
+      PRODUCT_DATABASE_URL: postgres://postgres:postgres@postgres:5432/product_db
 
   api-gateway:
     build:
@@ -52,11 +52,11 @@ services:
       dockerfile: infrastructure/docker/gateway.Dockerfile
     ports:
       - "8080:8080"
-    
+
     environment:
       PRODUCT_SERVICE_URL: http://product-service:8006
-  
-  
+
+
   postgres:
     image: postgres:17-alpine
     container_name: ecommerce_postgres
