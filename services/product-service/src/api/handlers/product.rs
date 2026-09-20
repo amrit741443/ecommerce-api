@@ -9,18 +9,22 @@ use uuid::Uuid;
 use crate::{
     api::{
         dto::product::{
-            CreateProductRequest, ProductListResponse, ProductResponse, UpdateProductRequest,
+            CreateProductRequest, ProductListResponse, ProductResponse, ReserveStockRequest,
+            ReserveStockResponse, UpdateProductRequest,
         },
         state::AppState,
     },
     application::{
-        commands::{create_product::CreateProductCommand, update_prouct::UpdateProductCommand},
+        commands::{
+            create_product::CreateProductCommand, reserve_stock::ReserveStockCommand,
+            update_prouct::UpdateProductCommand,
+        },
         queries::{
             delete_product::DeleteProductQuery, get_product::GetProductQuery,
             list_products::ListProductsQuery,
         },
     },
-    error::api::ApiError,
+    error::ApiError,
 };
 
 pub async fn create_product(
@@ -98,4 +102,25 @@ pub async fn delete_product(
         StatusCode::OK,
         Json("Product deleted successfully".to_string()),
     ))
+}
+
+//reserve_stock
+pub async fn reserve_stock(
+    State(state): State<AppState>,
+    Path(product_id): Path<Uuid>,
+    Json(request): Json<ReserveStockRequest>,
+) -> Result<Json<ReserveStockResponse>, ApiError> {
+    let product = state
+        .product_service
+        .reserve_stock(ReserveStockCommand {
+            product_id,
+            quantity: request.quantity,
+        })
+        .await?;
+
+    Ok(Json(ReserveStockResponse {
+        product_id,
+        reserved_quantity: request.quantity,
+        remaining_stock: product.stock,
+    }))
 }

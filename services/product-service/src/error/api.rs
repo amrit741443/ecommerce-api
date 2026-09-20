@@ -34,38 +34,35 @@ impl From<ApplicationError> for ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         match self {
-            ApiError::Application(ApplicationError::ProductNotFound) => (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new("product not found ")),
-            )
-                .into_response(),
+            ApiError::Application(ApplicationError::ProductNotFound) => {
+                into_error_response(StatusCode::NOT_FOUND, "product not found")
+            }
 
-            ApiError::Application(InvalidProductName) => (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new("product name cannot be empty")),
-            )
-                .into_response(),
+            ApiError::Application(InvalidProductName) => {
+                into_error_response(StatusCode::BAD_REQUEST, "product name cannot be empty")
+            }
 
-            ApiError::Application(ApplicationError::InvalidProductPrice) => (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new("product price cannot be negative")),
-            )
-                .into_response(),
+            ApiError::Application(ApplicationError::InvalidProductPrice) => {
+                into_error_response(StatusCode::BAD_REQUEST, "product price cannot be negative")
+            }
 
-            ApiError::Application(ApplicationError::InvalidProductStock) => (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new("product stock cannot be negative")),
-            )
-                .into_response(),
+            ApiError::Application(ApplicationError::InvalidProductStock) => {
+                into_error_response(StatusCode::BAD_REQUEST, "product stock cannot be negative")
+            }
+
+            ApiError::Application(ApplicationError::InsufficientStock) => {
+                into_error_response(StatusCode::BAD_REQUEST, "insufficient stock")
+            }
 
             ApiError::Application(ApplicationError::Repository(error)) => {
                 eprintln!("Repository error: {error:?}");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new("internal server error")),
-                )
-                    .into_response()
+
+                into_error_response(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
             }
         }
     }
+}
+
+fn into_error_response(status: StatusCode, message: &str) -> Response {
+    (status, Json(ErrorResponse::new(message))).into_response()
 }
