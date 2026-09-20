@@ -14,4 +14,4 @@ uuid.workspace = true
 sqlx.workspace = true
 dotenvy.workspace = true
 thiserror.workspace = true
-rust_decimal = { version = "1.36", features = ["db-postgres", "serde"] }
+rust_decimal.workspace = true

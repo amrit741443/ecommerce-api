@@ -27,7 +27,14 @@ services:
       context: .
       dockerfile: infrastructure/docker/order.Dockerfile
     ports:
-      - "8004"
+      - "8004:8004"
+
+    environment:
+      ORDER_DATABASE_URL: postgres://postgres:postgres@postgres:5432/order_db
+
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   payment-service:
     build:
@@ -45,6 +52,10 @@ services:
 
     environment:
       PRODUCT_DATABASE_URL: postgres://postgres:postgres@postgres:5432/product_db
+
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   api-gateway:
     build:
