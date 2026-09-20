@@ -18,4 +18,7 @@ pub enum ApplicationError {
 
     #[error("product stock cannot be negative")]
     InvalidProductStock,
+
+    #[error("insufficient stock")]
+    InsufficientStock,
 }
