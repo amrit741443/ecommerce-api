@@ -1,5 +1,6 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::domain::product::Product;
 
@@ -17,6 +18,11 @@ pub struct UpdateProductRequest {
     pub description: Option<String>,
     pub price: Option<Decimal>,
     pub stock: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReserveStockRequest {
+    pub quantity: i32,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,4 +54,11 @@ impl From<Product> for ProductResponse {
 pub struct ProductListResponse {
     pub total: usize,
     pub products: Vec<ProductResponse>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReserveStockResponse {
+    pub product_id: Uuid,
+    pub reserved_quantity: i32,
+    pub remaining_stock: i32,
 }
