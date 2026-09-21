@@ -158,4 +158,29 @@ id, name, description, price, stock, created_at, updated_at
 
         Ok(product)
     }
+
+    pub async fn release_stock(
+        &self,
+        product_id: Uuid,
+        quantity: i32,
+    ) -> Result<Option<Product>, RepositoryError> {
+        let product = sqlx::query_as::<_, Product>(
+            r#"
+        UPDATE products 
+        SET
+        stock = stock+ $2,
+        updated_at = NOW()
+         WHERE id = $1
+        RETURNING
+        id, name, description, price, stock, created_at, updated_at
+        
+        "#,
+        )
+        .bind(product_id)
+        .bind(quantity)
+        .fetch_optional(&self.db)
+        .await?;
+
+        Ok(product)
+    }
 }
