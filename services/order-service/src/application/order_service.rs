@@ -1,5 +1,6 @@
 use rust_decimal::Decimal;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::{
     application::commands::create_order::CreateOrderCommand,
@@ -9,6 +10,12 @@ use crate::{
         clients::product_client::ProductClient, repositories::order_repository::OrderRepository,
     },
 };
+
+struct ReservedItem {
+    product_id: Uuid,
+    quantity: i32,
+    unit_price: Decimal,
+}
 
 #[derive(Clone, Debug)]
 pub struct OrderService {
@@ -34,23 +41,38 @@ impl OrderService {
             return Err(ApplicationError::OrderMustContainItems);
         }
 
-        let mut resolved_items = Vec::new();
+        let mut reserved_items = Vec::new();
 
         for item in &command.items {
             if item.quantity <= 0 {
                 return Err(ApplicationError::InvalidQuantity);
             }
+
             let product = self.product_client.get_product(item.product_id).await?;
 
-            if product.stock < item.quantity {
-                return Err(ApplicationError::InsufficientStock);
+            match self
+                .product_client
+                .reserve_stock(item.product_id, item.quantity)
+                .await
+            {
+                Ok(_) => {
+                    reserved_items.push(ReservedItem {
+                        product_id: item.product_id,
+                        quantity: item.quantity,
+                        unit_price: product.price,
+                    });
+                }
+                Err(error) => {
+                    self.release_reserved_item(&reserved_items).await;
+
+                    return Err(error.into());
+                }
             }
-            resolved_items.push((item.product_id, item.quantity, product.price));
         }
 
-        let total = resolved_items
+        let total = reserved_items
             .iter()
-            .map(|item| item.2 * Decimal::from(item.1))
+            .map(|item| item.unit_price * Decimal::from(item.quantity))
             .sum();
 
         let mut tx = self.db.begin().await?;
@@ -60,13 +82,34 @@ impl OrderService {
             .create_order(&mut tx, command.user_id, total)
             .await?;
 
-        for (product_id, quantity, unit_price) in resolved_items {
+        for item in reserved_items {
             self.repository
-                .create_order_item(&mut tx, order.id, product_id, quantity, unit_price)
+                .create_order_item(
+                    &mut tx,
+                    order.id,
+                    item.product_id,
+                    item.quantity,
+                    item.unit_price,
+                )
                 .await?;
         }
 
         tx.commit().await?;
         Ok(order)
+    }
+
+    async fn release_reserved_item(&self, items: &[ReservedItem]) {
+        for item in items {
+            if let Err(error) = self
+                .product_client
+                .release_stock(item.product_id, item.quantity)
+                .await
+            {
+                eprintln!(
+                    "failed to release stock for {}: {:?}",
+                    item.product_id, error
+                );
+            }
+        }
     }
 }

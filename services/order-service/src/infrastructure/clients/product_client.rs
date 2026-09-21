@@ -47,4 +47,53 @@ impl ProductClient {
 
         Ok(product)
     }
+
+    //reserve stock
+
+    pub async fn reserve_stock(
+        &self,
+        product_id: Uuid,
+        quantity: i32,
+    ) -> Result<(), ProductClientError> {
+        let url = format!("{}/products/{}/reserve", self.base_url, product_id);
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&serde_json::json!({"quantity":quantity}))
+            .send()
+            .await?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(ProductClientError::ProductNotFound);
+        }
+
+        response.error_for_status()?;
+
+        Ok(())
+    }
+
+    // release stock
+    pub async fn release_stock(
+        &self,
+        product_id: Uuid,
+        quantity: i32,
+    ) -> Result<(), ProductClientError> {
+        let url = format!("{}/products/{}/release", self.base_url, product_id);
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&serde_json::json!({ "quantity": quantity }))
+            .send()
+            .await?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(ProductClientError::ProductNotFound);
+        }
+
+        response.error_for_status()?;
+
+        Ok(())
+    }
 }
