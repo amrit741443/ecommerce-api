@@ -5,7 +5,8 @@ use axum::{
 
 use crate::api::{
     handlers::product::{
-        create_product, delete_product, get_product, list_products, reserve_stock, update_product,
+        create_product, delete_product, get_product, list_products, release_stock, reserve_stock,
+        update_product,
     },
     state::AppState,
 };
@@ -21,6 +22,7 @@ pub fn create_router(state: AppState) -> Router {
                 .delete(delete_product),
         )
         .route("/products/{id}/reserve", post(reserve_stock))
+        .route("/products/{id}/release", post(release_stock))
         .with_state(state)
 }
 

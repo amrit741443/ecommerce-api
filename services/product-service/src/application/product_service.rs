@@ -3,8 +3,8 @@ use rust_decimal::Decimal;
 use crate::{
     application::{
         commands::{
-            create_product::CreateProductCommand, reserve_stock::ReserveStockCommand,
-            update_prouct::UpdateProductCommand,
+            create_product::CreateProductCommand, release_stock::ReleaseStockCommand,
+            reserve_stock::ReserveStockCommand, update_prouct::UpdateProductCommand,
         },
         queries::{
             delete_product::DeleteProductQuery, get_product::GetProductQuery,
@@ -140,5 +140,23 @@ impl ProductService {
             .await?;
 
         product.ok_or(ApplicationError::InsufficientStock)
+    }
+
+    //release stock
+
+    pub async fn release_stock(
+        &self,
+        command: ReleaseStockCommand,
+    ) -> Result<Product, ApplicationError> {
+        if command.quantity <= 0 {
+            return Err(ApplicationError::InvalidProductStock);
+        }
+
+        let product = self
+            .repository
+            .release_stock(command.product_id, command.quantity)
+            .await?;
+
+        product.ok_or(ApplicationError::ProductNotFound)
     }
 }
