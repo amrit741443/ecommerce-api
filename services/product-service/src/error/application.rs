@@ -21,4 +21,7 @@ pub enum ApplicationError {
 
     #[error("insufficient stock")]
     InsufficientStock,
+
+    #[error("Idempotency-Key header is required")]
+    MissingIdempotencyKey,
 }
