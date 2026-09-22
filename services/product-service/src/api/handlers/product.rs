@@ -1,7 +1,7 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
 };
 
 use uuid::Uuid;
@@ -24,7 +24,7 @@ use crate::{
             list_products::ListProductsQuery,
         },
     },
-    error::ApiError,
+    error::{ApiError, ApplicationError},
 };
 
 pub async fn create_product(
@@ -108,14 +108,21 @@ pub async fn delete_product(
 pub async fn reserve_stock(
     State(state): State<AppState>,
     Path(product_id): Path<Uuid>,
+    headers: HeaderMap,
     Json(request): Json<ReserveStockRequest>,
 ) -> Result<Json<ReserveStockResponse>, ApiError> {
+    let idempotency_key = headers
+        .get("Idempotency-Key")
+        .and_then(|value| value.to_str().ok())
+        .ok_or(ApplicationError::MissingIdempotencyKey)?;
+
     let product = state
         .product_service
-        .reserve_stock(ReserveStockCommand {
+        .reserve_stock(ReserveStockCommand::new(
             product_id,
-            quantity: request.quantity,
-        })
+            request.quantity,
+            idempotency_key,
+        ))
         .await?;
 
     Ok(Json(ReserveStockResponse {
