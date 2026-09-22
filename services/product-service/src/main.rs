@@ -16,6 +16,12 @@ async fn main() {
     // Initialize database pool
     let db = create_pool(&config.database_url).await;
 
+    //migrate
+    sqlx::migrate!("./migrations")
+        .run(&db)
+        .await
+        .expect("failed to run product-service migrations");
+
     // Run pending migrations at startup
 
     let product_repository = ProductRepository::new(db);

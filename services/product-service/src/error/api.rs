@@ -38,6 +38,11 @@ impl IntoResponse for ApiError {
                 into_error_response(StatusCode::NOT_FOUND, "product not found")
             }
 
+            ApiError::Application(ApplicationError::MissingIdempotencyKey) => into_error_response(
+                StatusCode::BAD_REQUEST,
+                "Idempotency-Key  header is required",
+            ),
+
             ApiError::Application(InvalidProductName) => {
                 into_error_response(StatusCode::BAD_REQUEST, "product name cannot be empty")
             }

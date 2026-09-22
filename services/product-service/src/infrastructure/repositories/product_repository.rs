@@ -1,5 +1,5 @@
 use rust_decimal::Decimal;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 use crate::{domain::product::Product, error::RepositoryError};
@@ -137,7 +137,52 @@ id, name, description, price, stock, created_at, updated_at
         &self,
         product_id: Uuid,
         quantity: i32,
+        idempotency_key: &str,
     ) -> Result<Option<Product>, RepositoryError> {
+        let mut tx = self.db.begin().await?;
+
+        // 1. Check whether this operation was already processed.
+
+        let existing = sqlx::query(
+            r#"
+        SELECT product_id, quantity
+        FROM stock_reservations
+        WHERE idempotency_key = $1
+        "#,
+        )
+        .bind(idempotency_key)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        if let Some(row) = existing {
+            // The request was already processed.
+            // Return the current product rather than reserving again.
+
+            let product_id: Uuid = row.get("product_id");
+
+            let product = sqlx::query_as::<_, Product>(
+                r#"
+            SELECT
+                id,
+                name,
+                description,
+                price,
+                stock,
+                created_at,
+                updated_at
+            FROM products
+            WHERE id = $1
+            "#,
+            )
+            .bind(product_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            tx.commit().await?;
+            return Ok(product);
+        }
+
+        // 2. Atomically reserve the stock.
         let product = sqlx::query_as::<_, Product>(
             r#"
         UPDATE products
@@ -156,7 +201,36 @@ id, name, description, price, stock, created_at, updated_at
         .fetch_optional(&self.db)
         .await?;
 
-        Ok(product)
+        let Some(product) = product else {
+            tx.rollback().await?;
+            return Ok(None);
+        };
+
+        // 3. Record the successful reservation.
+        sqlx::query(
+            r#"
+        INSERT INTO stock_reservations (
+            id,
+            idempotency_key,
+            product_id,
+            quantity,
+            status
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(idempotency_key)
+        .bind(product_id)
+        .bind(quantity)
+        .bind("reserved")
+        .execute(&mut *tx)
+        .await?;
+
+        //4. Make both operations permanent
+        tx.commit().await?;
+
+        Ok(Some(product))
     }
 
     pub async fn release_stock(

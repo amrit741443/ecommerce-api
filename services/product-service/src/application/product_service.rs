@@ -126,9 +126,9 @@ impl ProductService {
     }
 
     //Reserve stock
-    pub async fn reserve_stock(
+    pub async fn reserve_stock<'a>(
         &self,
-        command: ReserveStockCommand,
+        command: ReserveStockCommand<'a>,
     ) -> Result<Product, ApplicationError> {
         if command.quantity <= 0 {
             return Err(ApplicationError::InvalidProductStock);
@@ -136,7 +136,11 @@ impl ProductService {
 
         let product = self
             .repository
-            .reserve_stock(command.product_id, command.quantity)
+            .reserve_stock(
+                command.product_id,
+                command.quantity,
+                command.idempotency_key,
+            )
             .await?;
 
         product.ok_or(ApplicationError::InsufficientStock)
