@@ -54,12 +54,14 @@ impl ProductClient {
         &self,
         product_id: Uuid,
         quantity: i32,
+        idempotency_key: &str,
     ) -> Result<(), ProductClientError> {
         let url = format!("{}/products/{}/reserve", self.base_url, product_id);
 
         let response = self
             .client
             .post(&url)
+            .header("Idempotency-Key", idempotency_key)
             .json(&serde_json::json!({"quantity":quantity}))
             .send()
             .await?;

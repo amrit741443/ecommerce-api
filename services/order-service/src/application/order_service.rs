@@ -43,6 +43,8 @@ impl OrderService {
 
         let mut reserved_items = Vec::new();
 
+        let order_id = Uuid::new_v4();
+
         for item in &command.items {
             if item.quantity <= 0 {
                 return Err(ApplicationError::InvalidQuantity);
@@ -50,9 +52,11 @@ impl OrderService {
 
             let product = self.product_client.get_product(item.product_id).await?;
 
+            let reservation_key = format!("order:{}:product:{}", order_id, item.product_id);
+
             match self
                 .product_client
-                .reserve_stock(item.product_id, item.quantity)
+                .reserve_stock(item.product_id, item.quantity, &reservation_key)
                 .await
             {
                 Ok(_) => {
@@ -79,7 +83,7 @@ impl OrderService {
 
         let order = self
             .repository
-            .create_order(&mut tx, command.user_id, total)
+            .create_order(&mut tx, command.user_id, total, order_id)
             .await?;
 
         for item in reserved_items {

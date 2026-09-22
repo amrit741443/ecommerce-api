@@ -22,9 +22,8 @@ impl OrderRepository {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         user_id: Uuid,
         total: Decimal,
+        id: Uuid,
     ) -> Result<Order, RepositoryError> {
-        let id = Uuid::new_v4();
-
         let order = sqlx::query_as::<_, OrderRow>(
             r#"
                     INSERT INTO orders (
