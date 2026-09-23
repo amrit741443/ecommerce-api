@@ -11,7 +11,7 @@ use crate::{
             list_products::ListProductsQuery,
         },
     },
-    domain::product::Product,
+    domain::{product::Product, stock_reservation::StockReservationResult},
     error::ApplicationError,
     infrastructure::repositories::product_repository::ProductRepository,
 };
@@ -129,7 +129,7 @@ impl ProductService {
     pub async fn reserve_stock<'a>(
         &self,
         command: ReserveStockCommand<'a>,
-    ) -> Result<Product, ApplicationError> {
+    ) -> Result<StockReservationResult, ApplicationError> {
         if command.quantity <= 0 {
             return Err(ApplicationError::InvalidProductStock);
         }
@@ -139,6 +139,7 @@ impl ProductService {
             .reserve_stock(
                 command.product_id,
                 command.quantity,
+                command.order_id,
                 command.idempotency_key,
             )
             .await?;

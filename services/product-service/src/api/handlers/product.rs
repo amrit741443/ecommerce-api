@@ -116,9 +116,10 @@ pub async fn reserve_stock(
         .and_then(|value| value.to_str().ok())
         .ok_or(ApplicationError::MissingIdempotencyKey)?;
 
-    let product = state
+    let reservation = state
         .product_service
         .reserve_stock(ReserveStockCommand::new(
+            request.order_id,
             product_id,
             request.quantity,
             idempotency_key,
@@ -126,9 +127,11 @@ pub async fn reserve_stock(
         .await?;
 
     Ok(Json(ReserveStockResponse {
-        product_id,
-        reserved_quantity: request.quantity,
-        remaining_stock: product.stock,
+        reservation_id: reservation.reservation_id,
+        order_id: reservation.order_id,
+        product: ProductResponse::from(reservation.product),
+        quantity: reservation.quantity,
+        status: reservation.status,
     }))
 }
 

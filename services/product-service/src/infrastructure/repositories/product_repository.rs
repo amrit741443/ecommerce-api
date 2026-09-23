@@ -1,8 +1,14 @@
 use rust_decimal::Decimal;
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres};
 use uuid::Uuid;
 
-use crate::{domain::product::Product, error::RepositoryError};
+use crate::{
+    domain::{
+        product::Product,
+        stock_reservation::{ReservationRow, StockReservationResult},
+    },
+    error::RepositoryError,
+};
 
 #[derive(Debug, Clone)]
 pub struct ProductRepository {
@@ -46,6 +52,32 @@ impl ProductRepository {
 
         println!("Found {} products", products.len());
         Ok(products)
+    }
+
+    pub async fn find_by_id_with_executor(
+        &self,
+        id: Uuid,
+        executor: impl sqlx::Executor<'_, Database = Postgres>,
+    ) -> Result<Option<Product>, RepositoryError> {
+        let product = sqlx::query_as::<_, Product>(
+            r#"
+                  SELECT
+                      id,
+                      name,
+                      description,
+                      price,
+                      stock,
+                      created_at,
+                      updated_at
+                  FROM products
+                  WHERE id = $1
+                  "#,
+        )
+        .bind(id)
+        .fetch_optional(executor)
+        .await?;
+
+        Ok(product)
     }
 
     pub async fn create(
@@ -137,63 +169,59 @@ id, name, description, price, stock, created_at, updated_at
         &self,
         product_id: Uuid,
         quantity: i32,
+        order_id: Uuid,
         idempotency_key: &str,
-    ) -> Result<Option<Product>, RepositoryError> {
+    ) -> Result<Option<StockReservationResult>, RepositoryError> {
         let mut tx = self.db.begin().await?;
 
         // 1. Check whether this operation was already processed.
 
-        let existing = sqlx::query(
+        let existing = sqlx::query_as::<_, ReservationRow>(
             r#"
-        SELECT product_id, quantity
-        FROM stock_reservations
-        WHERE idempotency_key = $1
-        "#,
+                SELECT
+                    id,
+                    order_id,
+                    product_id,
+                    quantity,
+                    status
+                FROM stock_reservations
+                WHERE idempotency_key = $1
+                "#,
         )
         .bind(idempotency_key)
         .fetch_optional(&mut *tx)
         .await?;
 
-        if let Some(row) = existing {
+        if let Some(existing) = existing {
             // The request was already processed.
             // Return the current product rather than reserving again.
 
-            let product_id: Uuid = row.get("product_id");
-
-            let product = sqlx::query_as::<_, Product>(
-                r#"
-            SELECT
-                id,
-                name,
-                description,
-                price,
-                stock,
-                created_at,
-                updated_at
-            FROM products
-            WHERE id = $1
-            "#,
-            )
-            .bind(product_id)
-            .fetch_optional(&mut *tx)
-            .await?;
+            let product = self
+                .find_by_id_with_executor(existing.product_id, &mut *tx)
+                .await?;
 
             tx.commit().await?;
-            return Ok(product);
+            return Ok(product.map(|product| StockReservationResult {
+                reservation_id: existing.id,
+                order_id: existing.order_id,
+                product,
+                quantity: existing.quantity,
+                status: existing.status,
+            }));
         }
 
         // 2. Atomically reserve the stock.
         let product = sqlx::query_as::<_, Product>(
             r#"
         UPDATE products
-        SET 
+        SET
         stock = stock-$2,
         updated_at= NOW()
         WHERE id = $1
         AND stock >=2
         RETURNING
         id, name, description, price, stock, created_at, updated_at
-        
+
         "#,
         )
         .bind(product_id)
@@ -206,6 +234,8 @@ id, name, description, price, stock, created_at, updated_at
             return Ok(None);
         };
 
+        let reservation_id = Uuid::new_v4();
+
         // 3. Record the successful reservation.
         sqlx::query(
             r#"
@@ -213,15 +243,17 @@ id, name, description, price, stock, created_at, updated_at
             id,
             idempotency_key,
             product_id,
+            order_id,
             quantity,
             status
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6)
         "#,
         )
-        .bind(Uuid::new_v4())
+        .bind(reservation_id)
         .bind(idempotency_key)
         .bind(product_id)
+        .bind(order_id)
         .bind(quantity)
         .bind("reserved")
         .execute(&mut *tx)
@@ -230,7 +262,13 @@ id, name, description, price, stock, created_at, updated_at
         //4. Make both operations permanent
         tx.commit().await?;
 
-        Ok(Some(product))
+        Ok(Some(StockReservationResult {
+            reservation_id,
+            order_id,
+            product,
+            quantity,
+            status: "reserved".to_string(),
+        }))
     }
 
     pub async fn release_stock(
@@ -240,14 +278,14 @@ id, name, description, price, stock, created_at, updated_at
     ) -> Result<Option<Product>, RepositoryError> {
         let product = sqlx::query_as::<_, Product>(
             r#"
-        UPDATE products 
+        UPDATE products
         SET
         stock = stock+ $2,
         updated_at = NOW()
          WHERE id = $1
         RETURNING
         id, name, description, price, stock, created_at, updated_at
-        
+
         "#,
         )
         .bind(product_id)

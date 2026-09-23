@@ -23,6 +23,7 @@ pub struct UpdateProductRequest {
 #[derive(Debug, Deserialize)]
 pub struct ReserveStockRequest {
     pub quantity: i32,
+    pub order_id: Uuid,
 }
 
 #[derive(Debug, Serialize)]
@@ -58,9 +59,11 @@ pub struct ProductListResponse {
 
 #[derive(Debug, Serialize)]
 pub struct ReserveStockResponse {
-    pub product_id: Uuid,
-    pub reserved_quantity: i32,
-    pub remaining_stock: i32,
+    pub reservation_id: Uuid,
+    pub order_id: Uuid,
+    pub product: ProductResponse,
+    pub quantity: i32,
+    pub status: String,
 }
 
 #[derive(Debug, Serialize)]
