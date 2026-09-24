@@ -59,6 +59,10 @@ impl IntoResponse for ApiError {
                 into_error_response(StatusCode::BAD_REQUEST, "insufficient stock")
             }
 
+            ApiError::Application(ApplicationError::ReservationNotFound) => {
+                into_error_response(StatusCode::NOT_FOUND, "reservation not found")
+            }
+
             ApiError::Application(ApplicationError::Repository(error)) => {
                 eprintln!("Repository error: {error:?}");
 

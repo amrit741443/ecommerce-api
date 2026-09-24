@@ -11,7 +11,10 @@ use crate::{
             list_products::ListProductsQuery,
         },
     },
-    domain::{product::Product, stock_reservation::StockReservationResult},
+    domain::{
+        product::Product,
+        stock_reservation::{StockReservation, StockReservationResult},
+    },
     error::ApplicationError,
     infrastructure::repositories::product_repository::ProductRepository,
 };
@@ -152,16 +155,12 @@ impl ProductService {
     pub async fn release_stock(
         &self,
         command: ReleaseStockCommand,
-    ) -> Result<Product, ApplicationError> {
-        if command.quantity <= 0 {
-            return Err(ApplicationError::InvalidProductStock);
-        }
-
-        let product = self
+    ) -> Result<StockReservation, ApplicationError> {
+        let reservation = self
             .repository
-            .release_stock(command.product_id, command.quantity)
+            .release_stock(command.reservation_id)
             .await?;
 
-        product.ok_or(ApplicationError::ProductNotFound)
+        Ok(reservation)
     }
 }

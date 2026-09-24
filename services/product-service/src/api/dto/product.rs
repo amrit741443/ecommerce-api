@@ -65,10 +65,3 @@ pub struct ReserveStockResponse {
     pub quantity: i32,
     pub status: String,
 }
-
-#[derive(Debug, Serialize)]
-pub struct ReleaseStockResponse {
-    pub product_id: Uuid,
-    pub reserved_quantity: i32,
-    pub remaining_stock: i32,
-}

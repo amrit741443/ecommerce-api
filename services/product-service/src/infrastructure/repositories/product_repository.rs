@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::{
     domain::{
         product::Product,
-        stock_reservation::{ReservationRow, StockReservationResult},
+        stock_reservation::{ReservationRow, StockReservation, StockReservationResult},
     },
     error::RepositoryError,
 };
@@ -273,26 +273,70 @@ id, name, description, price, stock, created_at, updated_at
 
     pub async fn release_stock(
         &self,
-        product_id: Uuid,
-        quantity: i32,
-    ) -> Result<Option<Product>, RepositoryError> {
-        let product = sqlx::query_as::<_, Product>(
+        reservation_id: Uuid,
+    ) -> Result<StockReservation, RepositoryError> {
+        let mut tx = self.db.begin().await?;
+        let reservation = sqlx::query_as::<_, ReservationRow>(
             r#"
-        UPDATE products
-        SET
-        stock = stock+ $2,
-        updated_at = NOW()
-         WHERE id = $1
-        RETURNING
-        id, name, description, price, stock, created_at, updated_at
-
+            SELECT
+                       id,
+                       order_id,
+                       product_id,
+                       quantity,
+                       status
+                   FROM stock_reservations
+                   WHERE id = $1
+                   FOR UPDATE
         "#,
         )
-        .bind(product_id)
-        .bind(quantity)
+        .bind(reservation_id)
         .fetch_optional(&self.db)
         .await?;
 
-        Ok(product)
+        let Some(reservation) = reservation else {
+            return Err(RepositoryError::ReservationNotFound);
+        };
+
+        // Already released → idempotent success.
+        if reservation.status == "released" {
+            tx.commit().await?;
+            return reservation.try_into();
+        }
+
+        //update release stock
+        sqlx::query(
+            r#"UPDATE products
+        SET
+        stock = stock+$2,
+        updated_at= NOW()
+        WHERE id = $1"#,
+        )
+        .bind(reservation.product_id)
+        .bind(reservation.quantity)
+        .execute(&mut *tx)
+        .await?;
+
+        // Update status to released
+        let reservation = sqlx::query_as::<_, ReservationRow>(
+            r#"
+        UPDATE stock_reservations
+        SET
+            status = 'released',
+            updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+            id,
+            order_id,
+            product_id,
+            quantity,
+            status
+        "#,
+        )
+        .bind(reservation_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        reservation.try_into()
     }
 }
