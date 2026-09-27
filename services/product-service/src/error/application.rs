@@ -7,6 +7,9 @@ pub enum ApplicationError {
     #[error(transparent)]
     Repository(#[from] RepositoryError),
 
+    #[error("reservation not found")]
+    ReservationNotFound,
+
     #[error("product not found")]
     ProductNotFound,
 

@@ -22,7 +22,10 @@ pub fn create_router(state: AppState) -> Router {
                 .delete(delete_product),
         )
         .route("/products/{id}/reserve", post(reserve_stock))
-        .route("/products/{id}/release", post(release_stock))
+        .route(
+            "/reservations/{reservation_id}/release",
+            post(release_stock),
+        )
         .with_state(state)
 }
 

@@ -8,9 +8,12 @@ use uuid::Uuid;
 
 use crate::{
     api::{
-        dto::product::{
-            CreateProductRequest, ProductListResponse, ProductResponse, ReleaseStockResponse,
-            ReserveStockRequest, ReserveStockResponse, UpdateProductRequest,
+        dto::{
+            product::{
+                CreateProductRequest, ProductListResponse, ProductResponse, ReserveStockRequest,
+                ReserveStockResponse, UpdateProductRequest,
+            },
+            reservation::ReleaseReservationResponse,
         },
         state::AppState,
     },
@@ -116,9 +119,10 @@ pub async fn reserve_stock(
         .and_then(|value| value.to_str().ok())
         .ok_or(ApplicationError::MissingIdempotencyKey)?;
 
-    let product = state
+    let reservation = state
         .product_service
         .reserve_stock(ReserveStockCommand::new(
+            request.order_id,
             product_id,
             request.quantity,
             idempotency_key,
@@ -126,9 +130,11 @@ pub async fn reserve_stock(
         .await?;
 
     Ok(Json(ReserveStockResponse {
-        product_id,
-        reserved_quantity: request.quantity,
-        remaining_stock: product.stock,
+        reservation_id: reservation.reservation_id,
+        order_id: reservation.order_id,
+        product: ProductResponse::from(reservation.product),
+        quantity: reservation.quantity,
+        status: reservation.status,
     }))
 }
 
@@ -136,20 +142,12 @@ pub async fn reserve_stock(
 
 pub async fn release_stock(
     State(state): State<AppState>,
-    Path(product_id): Path<Uuid>,
-    Json(request): Json<ReserveStockRequest>,
-) -> Result<Json<ReleaseStockResponse>, ApiError> {
-    let product = state
+    Path(reservation_id): Path<Uuid>,
+) -> Result<(StatusCode, Json<ReleaseReservationResponse>), ApiError> {
+    let reservation = state
         .product_service
-        .release_stock(ReleaseStockCommand {
-            product_id,
-            quantity: request.quantity,
-        })
+        .release_stock(ReleaseStockCommand { reservation_id })
         .await?;
 
-    Ok(Json(ReleaseStockResponse {
-        product_id: product.id,
-        reserved_quantity: request.quantity,
-        remaining_stock: product.stock,
-    }))
+    Ok((StatusCode::OK, Json(reservation.into())))
 }
